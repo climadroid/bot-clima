@@ -3,6 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, CallbackContext
 import requests
 import logging
+from datetime import datetime, timezone, timedelta
 
 # Configurar logging
 logging.basicConfig(
@@ -19,6 +20,7 @@ API_KEY = os.getenv("WEATHER_API_KEY")
 async def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("☁️ Consultar Clima", callback_data='clima')],
+        [InlineKeyboardButton("🕐 Hora", callback_data='hora')],
         [InlineKeyboardButton("👨‍💻 Creador", callback_data='creador')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -36,6 +38,9 @@ async def menu_callback(update: Update, context: CallbackContext) -> None:
 
     if query.data == 'clima':
         await query.edit_message_text("Por favor, usa el comando /clima <ciudad> para obtener el clima.\n\nEjemplo: /clima Madrid")
+
+    elif query.data == 'hora':
+        await query.edit_message_text("Por favor, usa el comando /hora <ciudad> para obtener la hora local.\n\nEjemplo: /hora Tokyo")
 
     elif query.data == 'creador':
         await query.edit_message_text(
@@ -88,6 +93,41 @@ async def get_weather(update: Update, context: CallbackContext) -> None:
         logger.error(f"Error al obtener el clima: {e}")
         await update.message.reply_text(f"❌ Error al obtener el clima: {str(e)}")
 
+async def hora(update: Update, context: CallbackContext) -> None:
+    try:
+        city = " ".join(context.args) if context.args else ""
+        if not city:
+            await update.message.reply_text("Por favor, proporciona una ciudad.\n\nEjemplo: /hora Tokyo")
+            return
+
+        response = requests.get(API_WEATHER, params={
+            'q': city,
+            'appid': API_KEY,
+        }, timeout=10).json()
+
+        if int(response.get('cod', 0)) != 200:
+            await update.message.reply_text("No se pudo encontrar esa ciudad. Verifica el nombre.")
+            return
+
+        # Obtener la zona horaria de la ciudad (offset en segundos)
+        tz_offset = response.get('timezone', 0)
+        tz = timezone(timedelta(seconds=tz_offset))
+        hora_local = datetime.now(tz)
+
+        await update.message.reply_text(
+            f"🕐 *Hora en {city}*\n\n"
+            f"📅 Fecha: {hora_local.strftime('%d/%m/%Y')}\n"
+            f"⏰ Hora: {hora_local.strftime('%H:%M:%S')}\n"
+            f"🌐 UTC{'+' if tz_offset >= 0 else ''}{tz_offset // 3600}:{abs(tz_offset % 3600) // 60:02d}",
+            parse_mode='Markdown'
+        )
+
+    except requests.exceptions.Timeout:
+        await update.message.reply_text("⏳ La consulta tardó demasiado. Intenta de nuevo.")
+    except Exception as e:
+        logger.error(f"Error al obtener la hora: {e}")
+        await update.message.reply_text(f"❌ Error al obtener la hora: {str(e)}")
+
 async def creador(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text(
         "👨‍💻 *Creador del Bot*\n\n"
@@ -107,6 +147,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(menu_callback))
     app.add_handler(CommandHandler("clima", get_weather))
+    app.add_handler(CommandHandler("hora", hora))
     app.add_handler(CommandHandler("creador", creador))
 
     logger.info("Bot iniciado correctamente.")
