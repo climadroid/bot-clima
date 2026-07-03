@@ -18,10 +18,17 @@ API_KEY = os.getenv("WEATHER_API_KEY")
 
 async def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
-        [InlineKeyboardButton("Consultar Clima", callback_data='clima')]
+        [InlineKeyboardButton("☁️ Consultar Clima", callback_data='clima')],
+        [InlineKeyboardButton("👨‍💻 Creador", callback_data='creador')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("¡Bienvenido! Selecciona una opción:", reply_markup=reply_markup)
+    await update.message.reply_text(
+        "🌤️ *Bot del Clima*\n\n"
+        "¡Bienvenido! Selecciona una opción:\n\n"
+        "_Creado por @daxurymer_",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
 
 async def menu_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -29,6 +36,15 @@ async def menu_callback(update: Update, context: CallbackContext) -> None:
 
     if query.data == 'clima':
         await query.edit_message_text("Por favor, usa el comando /clima <ciudad> para obtener el clima.\n\nEjemplo: /clima Madrid")
+
+    elif query.data == 'creador':
+        await query.edit_message_text(
+            "👨‍💻 *Creador del Bot*\n\n"
+            "Este bot fue creado por *daxurymer* 🚀\n\n"
+            "📌 GitHub: github.com/climadroid\n"
+            "🤖 Gracias por usar el bot!",
+            parse_mode='Markdown'
+        )
 
 async def get_weather(update: Update, context: CallbackContext) -> None:
     try:
@@ -72,6 +88,15 @@ async def get_weather(update: Update, context: CallbackContext) -> None:
         logger.error(f"Error al obtener el clima: {e}")
         await update.message.reply_text(f"❌ Error al obtener el clima: {str(e)}")
 
+async def creador(update: Update, context: CallbackContext) -> None:
+    await update.message.reply_text(
+        "👨‍💻 *Creador del Bot*\n\n"
+        "Este bot fue creado por *daxurymer* 🚀\n\n"
+        "📌 GitHub: github.com/climadroid\n"
+        "🤖 Gracias por usar el bot!",
+        parse_mode='Markdown'
+    )
+
 if __name__ == "__main__":
     if not TOKEN or not API_KEY:
         logger.error("❌ Faltan variables de entorno: TELEGRAM_TOKEN y/o WEATHER_API_KEY")
@@ -82,6 +107,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(menu_callback))
     app.add_handler(CommandHandler("clima", get_weather))
+    app.add_handler(CommandHandler("creador", creador))
 
     logger.info("Bot iniciado correctamente.")
     app.run_polling()
